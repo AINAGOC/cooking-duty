@@ -93,18 +93,16 @@ export default function Dashboard({ holidayDates, weekOffset, setWeekOffset, ove
 
               {/* Meals */}
               <div className="mt-2 space-y-1 text-center w-full">
-                <MealRow label="朝" person={duty.breakfast} isOverridden={!!dayOverride.breakfast} onTap={() => {
-                  const cur = dayOverride.breakfast || personToKey(duty.breakfast);
-                  setOverride(dateKey, 'breakfast', nextPerson(cur, 'breakfast'));
-                }} />
-                <MealRow label="昼" person={duty.lunch} isOverridden={!!dayOverride.lunch} onTap={() => {
-                  const cur = dayOverride.lunch || personToKey(duty.lunch);
-                  setOverride(dateKey, 'lunch', nextPerson(cur, 'lunch'));
-                }} />
-                <MealRow label="夜" person={duty.dinner} isOverridden={!!dayOverride.dinner} onTap={() => {
-                  const cur = dayOverride.dinner || personToKey(duty.dinner);
-                  setOverride(dateKey, 'dinner', nextPerson(cur, 'dinner'));
-                }} />
+                {['breakfast', 'lunch', 'dinner'].map((meal) => {
+                  const label = meal === 'breakfast' ? '朝' : meal === 'lunch' ? '昼' : '夜';
+                  const isOverridden = !!dayOverride[meal];
+                  const cur = dayOverride[meal] || personToKey(duty[meal]);
+                  return (
+                    <MealRow key={meal} label={label} person={duty[meal]} isOverridden={isOverridden} onTap={() => {
+                      setOverride(dateKey, meal, nextPerson(cur, isOverridden, meal));
+                    }} />
+                  );
+                })}
               </div>
             </div>
           );

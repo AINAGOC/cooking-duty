@@ -96,15 +96,26 @@ export function getDutyWithOverrides(date, isHoliday, overrides = {}) {
 /**
  * meal の次の担当（SHOTA→RENA→SHOTA、朝食のみEACHも含む）
  */
-export function nextPerson(currentKey, meal) {
-  if (meal === 'breakfast') {
-    // null = デフォルトに戻す
-    const cycle = ['EACH', 'SHOTA', 'RENA', null];
-    const idx = cycle.indexOf(currentKey);
-    return cycle[(idx + 1) % cycle.length];
+/**
+ * 次の担当キーを返す
+ * @param {string} currentKey - 現在の担当キー（override値 or default値）
+ * @param {boolean} isOverridden - すでにoverride済みかどうか
+ * @param {string} meal - 'breakfast' | 'lunch' | 'dinner'
+ */
+export function nextPerson(currentKey, isOverridden, meal) {
+  const cycle = meal === 'breakfast'
+    ? ['EACH', 'SHOTA', 'RENA', null]
+    : ['SHOTA', 'RENA', null];
+
+  if (!isOverridden) {
+    // 初回タップ：nullを除いたサイクルでdefault以外の最初の値へ
+    // （デフォルトがREANでもSHOTAでも必ず変化する）
+    const nonNull = cycle.filter(k => k !== null);
+    const idx = nonNull.indexOf(currentKey);
+    return nonNull[(idx + 1) % nonNull.length];
   }
-  // 昼食・夕食: SHOTA → RENA → null（デフォルト）→ SHOTA
-  const cycle = ['SHOTA', 'RENA', null];
+
+  // override済み：nullを含む全サイクルで次へ（nullでデフォルトに戻る）
   const idx = cycle.indexOf(currentKey);
   return cycle[(idx + 1) % cycle.length];
 }

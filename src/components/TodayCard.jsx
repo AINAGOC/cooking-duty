@@ -11,8 +11,9 @@ export default function TodayCard({ holidayDates, overrides, setOverride }) {
   const formatted = `${today.getMonth() + 1}/${today.getDate()}（${DAYS[today.getDay()]}）`;
 
   const handleTap = (meal) => {
+    const isOverridden = !!dayOverride[meal];
     const cur = dayOverride[meal] || personToKey(duty[meal]);
-    setOverride(dateKey, meal, nextPerson(cur, meal));
+    setOverride(dateKey, meal, nextPerson(cur, isOverridden, meal));
   };
 
   return (
