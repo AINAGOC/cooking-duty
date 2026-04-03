@@ -98,11 +98,15 @@ export function getDutyWithOverrides(date, isHoliday, overrides = {}) {
  */
 export function nextPerson(currentKey, meal) {
   if (meal === 'breakfast') {
-    const cycle = ['EACH', 'SHOTA', 'RENA'];
+    // null = デフォルトに戻す
+    const cycle = ['EACH', 'SHOTA', 'RENA', null];
     const idx = cycle.indexOf(currentKey);
     return cycle[(idx + 1) % cycle.length];
   }
-  return currentKey === 'SHOTA' ? 'RENA' : 'SHOTA';
+  // 昼食・夕食: SHOTA → RENA → null（デフォルト）→ SHOTA
+  const cycle = ['SHOTA', 'RENA', null];
+  const idx = cycle.indexOf(currentKey);
+  return cycle[(idx + 1) % cycle.length];
 }
 
 /**

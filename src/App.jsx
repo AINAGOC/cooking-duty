@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
-import { ref, onValue, set } from 'firebase/database';
+import { useState, useEffect } from 'react';
+import { ref, onValue, update } from 'firebase/database';
 import { db } from './firebase';
 import TodayCard from './components/TodayCard';
 import Dashboard from './components/Dashboard';
@@ -8,7 +8,6 @@ import HolidayToggle from './components/HolidayToggle';
 import ExceptionRules from './components/ExceptionRules';
 
 const DB_PATH = 'cooking-duty/state';
-const DEFAULT_STATE = { holidayDates: [], lunchPrepared: {}, overrides: {} };
 
 export default function App() {
   const [holidayDates, setHolidayDates] = useState(new Set());
@@ -17,15 +16,10 @@ export default function App() {
   const [weekOffset, setWeekOffset] = useState(0);
   const [synced, setSynced] = useState(false);
 
-  // リモートからの更新を無視する一時フラグ（自分の書き込みに反応しないため）
-  const skipRemote = useRef(false);
-
-  // Firebase → ローカル state に同期（リアルタイム）
+  // Firebase → ローカルstateにリアルタイム同期
   useEffect(() => {
-    const dbRef = ref(db, DB_PATH);
-    const unsub = onValue(dbRef, (snapshot) => {
-      if (skipRemote.current) return;
-      const data = snapshot.val() || DEFAULT_STATE;
+    const unsub = onValue(ref(db, DB_PATH), (snapshot) => {
+      const data = snapshot.val() || {};
       setHolidayDates(new Set(data.holidayDates || []));
       setLunchPreparedMap(data.lunchPrepared || {});
       setOverridesMap(data.overrides || {});
@@ -34,44 +28,47 @@ export default function App() {
     return () => unsub();
   }, []);
 
-  // ローカル state → Firebase に書き込む
-  const saveToFirebase = (next) => {
-    skipRemote.current = true;
-    set(ref(db, DB_PATH), next).finally(() => {
-      setTimeout(() => { skipRemote.current = false; }, 500);
-    });
-  };
-
   const todayKey = new Date().toISOString().slice(0, 10);
   const lunchPrepared = !!lunchPreparedMap[todayKey];
 
+  // パス単位でupdateして同時編集の競合を防ぐ
   const toggleHoliday = (dateKey) => {
+    if (!synced) return;
     setHolidayDates((prev) => {
       const next = new Set(prev);
       if (next.has(dateKey)) next.delete(dateKey);
       else next.add(dateKey);
-      saveToFirebase({ holidayDates: [...next], lunchPrepared: lunchPreparedMap, overrides });
+      update(ref(db, DB_PATH), { holidayDates: [...next] });
       return next;
     });
   };
 
   const setLunchPrepared = (val) => {
+    if (!synced) return;
     setLunchPreparedMap((prev) => {
       const next = { ...prev, [todayKey]: val };
-      saveToFirebase({ holidayDates: [...holidayDates], lunchPrepared: next, overrides });
+      update(ref(db, `${DB_PATH}/lunchPrepared`), { [todayKey]: val });
       return next;
     });
   };
 
   const setOverride = (dateKey, meal, personKey) => {
+    if (!synced) return;
     setOverridesMap((prev) => {
       const day = { ...(prev[dateKey] || {}) };
-      if (personKey === null) delete day[meal];
-      else day[meal] = personKey;
+      if (personKey === null) {
+        delete day[meal];
+      } else {
+        day[meal] = personKey;
+      }
       const next = { ...prev };
-      if (Object.keys(day).length === 0) delete next[dateKey];
-      else next[dateKey] = day;
-      saveToFirebase({ holidayDates: [...holidayDates], lunchPrepared: lunchPreparedMap, overrides: next });
+      if (Object.keys(day).length === 0) {
+        delete next[dateKey];
+        update(ref(db, `${DB_PATH}/overrides`), { [dateKey]: null });
+      } else {
+        next[dateKey] = day;
+        update(ref(db, `${DB_PATH}/overrides/${dateKey}`), { [meal]: personKey });
+      }
       return next;
     });
   };
@@ -82,9 +79,9 @@ export default function App() {
         <div className="max-w-lg mx-auto px-4 py-3 flex items-center gap-2">
           <span className="text-2xl">🍳</span>
           <h1 className="text-base font-bold text-gray-800">料理分担管理</h1>
-          {synced && (
-            <span className="ml-auto text-[10px] text-green-500">● 同期中</span>
-          )}
+          <span className={`ml-auto text-[10px] ${synced ? 'text-green-500' : 'text-gray-400'}`}>
+            {synced ? '● 接続済み' : '○ 接続中...'}
+          </span>
         </div>
       </header>
 
